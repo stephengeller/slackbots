@@ -20,7 +20,7 @@ FUNCTION_NAME="" # Add the name of the lambda function here, should start with "
 REGION="" # Add region where the lambda / table exists
 DYNAMODB_TABLE="" # Add the name of the DynamoDB table
 ```
-5. Run ./deploy.sh and see what happens!
+5. Run `./deploy.sh` and see what happens!
 
 ### `MinecraftSlackbot`
 
@@ -31,7 +31,7 @@ and that the server is publicly accessible through a public IP.
 
 1. Create a `.env` file in the directory
 2. Create an AWS Lambda function, to be used to execute the commands. Choose NodeJS as the language.
-3. Fill in the `.env file like so:
+3. Fill in the `.env` file like so:
 ```dotenv
 FUNCTION_NAME="" # Add the name of the lambda function here, should start with "arn:..."
 REGION="" # Add region where the lambda exists
@@ -39,7 +39,7 @@ INSTANCE_IP="" # Add the public IP of the minecraft server you want to query
 
 SERVER_INSTANCE_ID="" # Add the instance ID of the EC2 instance running the server
 ```
-4. Run ./deploy.sh and see what happens!
+4. Run `./deploy.sh` and see what happens!
 
 
 # TODO:
