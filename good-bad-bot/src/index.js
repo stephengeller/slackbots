@@ -1,5 +1,5 @@
 const AWS = require("aws-sdk");
-require("dotenv").config(g);
+require("dotenv").config();
 
 AWS.config.update({ region: "eu-west-2" });
 
@@ -65,7 +65,7 @@ const handler = async event => {
     .catch(err => {
       console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
       return jsonResponse(channel, {
-        text: `errored, you idiot <@${user_id}>`
+        text: `ERROR: ${err.toString()}`
       });
     });
 };
