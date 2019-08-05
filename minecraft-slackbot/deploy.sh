@@ -10,6 +10,8 @@ BOLD="\033[1m"
 NC="\033[0m"
 
 PACKAGE_DIR=package # Directory to bundle everything up
+
+
 ZIPPED_PACKAGE=${FUNCTION_NAME}.zip # So that we can use it later
 PROFILE="${3:-default}" # Use "default" if you don't have fancy configuration in your ~/.aws/credentials
 
@@ -31,9 +33,10 @@ function install_dependencies() {
 # Copy source files into directory, and zip it up
 function zip_files() {
     cp src/* ${PACKAGE_DIR}/
+    cp .env ${PACKAGE_DIR}/
     cd ${PACKAGE_DIR}
     echo -e "\n${BOLD}Zipping up...${NC}"
-    zip -r ../${ZIPPED_PACKAGE} *
+    zip -r ../${ZIPPED_PACKAGE} * .*
     cd - &>/dev/null
 }
 
