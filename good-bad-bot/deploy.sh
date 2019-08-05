@@ -36,7 +36,7 @@ function zip_files() {
     cp .env ${PACKAGE_DIR}/
     cd ${PACKAGE_DIR}
     echo -e "\n${BOLD}Zipping up...${NC}"
-    zip -r ../${ZIPPED_PACKAGE} * .*
+    zip -r ../${ZIPPED_PACKAGE} * ./.env
     cd - &>/dev/null
 }
 
