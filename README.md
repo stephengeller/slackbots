@@ -14,7 +14,7 @@ Both slackbots will need a `.env` file within their respective directories, for 
 1. Create a `.env` file in the directory
 2. Create an AWS DynamoDB table and keep note of the name.
 3. Create an AWS Lambda function in the same region, to be used to execute the commands. Choose NodeJS as the language.
-4. Fill in the `.env file like so:
+4. Fill in the `.env` file like so:
 ```dotenv
 FUNCTION_NAME="" # Add the name of the lambda function here, should start with "arn:..."
 REGION="" # Add region where the lambda / table exists
