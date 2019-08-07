@@ -5,20 +5,15 @@ require("dotenv").config();
 AWS.config.update({ region: "eu-west-2" });
 
 const stephenID = "ULQRZJEK1";
-const instanceIP = process.env.INSTANCE_IP;
+const minecraftChannel = "CLBLVNLE7";
+const { INSTANCE_IP, SERVER_INSTANCE_ID } = process.env;
 const ec2 = new AWS.EC2({ apiVersion: "2016-11-15" });
 const params = {
   DryRun: false,
-  InstanceIds: [process.env.SERVER_INSTANCE_ID]
+  InstanceIds: [SERVER_INSTANCE_ID]
 };
 
-const jsonResponse = (
-  channel,
-  { text, response_type } = {
-    text: "no text provided",
-    response_type: "in_channel"
-  }
-) => {
+const jsonResponse = (channel, text, response_type = "in_channel") => {
   return {
     statusCode: 200,
     body: JSON.stringify({
@@ -71,7 +66,7 @@ const serverStatus = async () => {
     return "EC2 instance is off. Run `/minecraft on` to turn it on.\n";
   }
 
-  const url = "https://mcapi.us/server/status?port=25565&ip=" + instanceIP;
+  const url = "https://mcapi.us/server/status?port=25565&ip=" + INSTANCE_IP;
   return await axios.get(url).then(res => {
     let formattedStr;
     const { data } = res;
@@ -94,7 +89,7 @@ const handler = async event => {
   let msg = "Incorrect arg, try `/minecraft on|off|status`";
   const { body } = event;
   const parsed = new URLSearchParams(body);
-  const channel = parsed.get("channel_id");
+  const req_channel = parsed.get("channel_id");
   const user_id = parsed.get("user_id");
   const command = parsed.get("command");
   const text = parsed.get("text");
@@ -107,14 +102,14 @@ const handler = async event => {
         msg = await turnOffServer(user_id);
       } else if (text === "status") {
         msg = await serverStatus();
-        return jsonResponse(channel, { text: msg, response_type: "ephemeral" });
+        return jsonResponse(req_channel, msg, "ephemeral");
       }
     }
   } catch (e) {
     msg = "ERROR: " + e.toString();
   }
 
-  return jsonResponse(channel, { text: msg });
+  return jsonResponse(minecraftChannel, msg, "in_channel");
 };
 
 module.exports = { handler };

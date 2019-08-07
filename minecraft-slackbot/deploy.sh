@@ -9,6 +9,7 @@ GREEN="\033[32m"
 BOLD="\033[1m"
 NC="\033[0m"
 
+SRC_DIR=src
 PACKAGE_DIR=package # Directory to bundle everything up
 
 
@@ -23,6 +24,10 @@ if [[ -z ${FUNCTION_NAME} ||  -z ${REGION} ||  -z ${PROFILE} ]]; then
 fi
 
 
+function lint_files() {
+    eslint ${SRC_DIR}/
+}
+
 # Install dependencies from requirements.txt
 function install_dependencies() {
     mkdir ${PACKAGE_DIR}
@@ -32,7 +37,7 @@ function install_dependencies() {
 
 # Copy source files into directory, and zip it up
 function zip_files() {
-    cp src/* ${PACKAGE_DIR}/
+    cp ${SRC_DIR}/* ${PACKAGE_DIR}/
     cp .env ${PACKAGE_DIR}/
     cd ${PACKAGE_DIR}
     echo -e "\n${BOLD}Zipping up...${NC}"
@@ -59,6 +64,7 @@ function cleanup() {
     rm -rf ${PACKAGE_DIR}
 }
 
+lint_files
 cleanup
 install_dependencies
 zip_files
