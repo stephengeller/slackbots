@@ -1,13 +1,13 @@
 const AWS = require("aws-sdk");
 require("dotenv").config();
 
+const { DYNAMODB_TABLE } = process.env;
+
 AWS.config.update({ region: "eu-west-2" });
 
 const docClient = new AWS.DynamoDB.DocumentClient();
 
-let params = { TableName: process.env.DYNAMODB_TABLE };
-
-// An access token (from your Slack app or custom integration - xoxp, xoxb)
+let params = { TableName: DYNAMODB_TABLE };
 
 const processVotes = items => {
   const goodVotesCount = items.filter(item => item.vote === "good").length;
@@ -15,7 +15,7 @@ const processVotes = items => {
   return `:simple_smile: *${goodVotesCount}*\n:frowning: *${badVotesCount}*`;
 };
 
-function jsonResponse(channel, { text }) {
+function jsonResponse(channel, text) {
   return {
     statusCode: 200,
     body: JSON.stringify({
@@ -45,29 +45,32 @@ const handler = async event => {
   const user_id = parsed.get("user_id");
   const command = parsed.get("command");
 
-  if (command === "/goodbot") {
-    await addVote(user_id, "good");
-    const text = `:aw_yeah:\n`;
-    return jsonResponse(channel, { text });
-  } else if (command === "/badbot") {
-    await addVote(user_id, "bad");
-    const text = `:demonplop:\n`;
-    return jsonResponse(channel, { text });
+  try {
+    if (command === "/goodbot") {
+      await addVote(user_id, "good");
+      const text = ":aw_yeah:";
+      return jsonResponse(channel, text);
+    } else if (command === "/badbot") {
+      await addVote(user_id, "bad");
+      const text = ":demonplop:";
+      return jsonResponse(channel, text);
+    } else if (command === "/judgebot") {
+      return await docClient
+        .scan(params)
+        .promise()
+        .then(async data => {
+          const text = await processVotes(data.Items);
+          return jsonResponse(channel, text);
+        })
+        .catch(err => {
+          return jsonResponse(channel, `DB SCAN ERROR: ${err.toString()}`);
+        });
+    } else {
+      return jsonResponse(channel, "bad slash command, check your naming");
+    }
+  } catch (err) {
+    return jsonResponse(channel, err.toString());
   }
-
-  return docClient
-    .scan(params)
-    .promise()
-    .then(async data => {
-      const text = processVotes(data.Items);
-      return jsonResponse(channel, { text });
-    })
-    .catch(err => {
-      console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
-      return jsonResponse(channel, {
-        text: `ERROR: ${err.toString()}`
-      });
-    });
 };
 
 module.exports = { handler };
