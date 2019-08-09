@@ -2,7 +2,11 @@
 
 set -euo pipefail
 
-source ./.env
+BOT=$1
+
+cd ${BOT}
+
+source .env
 
 RED="\033[31m"
 GREEN="\033[32m"
@@ -17,7 +21,7 @@ ZIPPED_PACKAGE=${FUNCTION_NAME}.zip # So that we can use it later
 PROFILE="${3:-default}" # Use "default" if you don't have fancy configuration in your ~/.aws/credentials
 
 if [[ -z ${FUNCTION_NAME} ||  -z ${REGION} ||  -z ${PROFILE} ]]; then
-    echo -e "${RED}Error! Missing config in deploy.sh"
+    echo -e "${RED}Error! Missing config in deploy_to_aws.sh"
     echo -e "Make sure you pass FUNCTION_NAME, REGION and PROFILE variables."
     echo -e "${BOLD}e.g. ${0} some_function eu-west-1 some_user1${NC}"
     exit 1
@@ -69,3 +73,5 @@ cleanup
 install_dependencies
 zip_files
 upload_to_aws
+
+cd ../
