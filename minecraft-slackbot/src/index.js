@@ -4,7 +4,7 @@ require("dotenv").config();
 
 AWS.config.update({ region: "eu-west-2" });
 
-const stephenID = "ULQRZJEK1";
+// const stephenID = "ULQRZJEK1";
 const minecraftChannel = "CLBLVNLE7";
 const { INSTANCE_IP, SERVER_INSTANCE_ID } = process.env;
 const ec2 = new AWS.EC2({ apiVersion: "2016-11-15" });
@@ -24,31 +24,38 @@ const jsonResponse = (channel, text, response_type = "in_channel") => {
   };
 };
 
-function userIsValid(user) {
-  return user === stephenID;
-}
+// function userIsValid(user) {
+//   return user === stephenID;
+// }
 
 const turnOnServer = async user => {
-  await ec2
-    .startInstances(params)
-    .promise()
-    .catch(err => err);
-  return `<@${user}> turned on the server!`;
+  const { state } = await getEC2State();
+  if (state === "stopped") {
+    await ec2
+      .startInstances(params)
+      .promise()
+      .catch(err => err);
+    return `<@${user}> turned on the server!`;
+  } else {
+    return "Server is not currently off, check `/minecraft status`.";
+  }
 };
 
 const turnOffServer = async user => {
-  if (userIsValid(user)) {
+  const { state } = await getEC2State();
+  if (state === "stopped") {
+    return "Server is already off, check `/minecraft status`.";
+  } else {
     await ec2
       .stopInstances(params)
       .promise()
       .catch(err => err);
     return `<@${user}> is stopping the server!`;
-  } else {
-    return `Ask <@${stephenID}> for access perms :)`;
   }
 };
-const serverStatus = async () => {
-  const ec2Info = await ec2
+
+async function getEC2State() {
+  return await ec2
     .describeInstances(params)
     .promise()
     .then(data => {
@@ -61,9 +68,17 @@ const serverStatus = async () => {
       };
     })
     .catch(err => console.log(err));
+}
+
+const serverStatus = async () => {
+  const ec2Info = await getEC2State();
 
   if (ec2Info.state !== "running") {
-    return "EC2 instance is off. Run `/minecraft on` to turn it on.\n";
+    return (
+      "EC2 instance is " +
+      ec2Info.state +
+      ". Run `/minecraft on` to turn it on.\n"
+    );
   }
 
   const url = "https://mcapi.us/server/status?port=25565&ip=" + INSTANCE_IP;
@@ -78,7 +93,7 @@ const serverStatus = async () => {
       return (
         `\nEC2 instance is ${
           ec2Info.state
-        } but server is not running. Maybe speak to Stephen?\n` +
+        } but *Minecraft server is not running*.\nWait for a few seconds if just turning it on, then speak to Stephen?\n` +
         ec2Info.message
       );
     }

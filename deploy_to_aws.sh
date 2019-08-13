@@ -4,7 +4,9 @@ set -euo pipefail
 
 BOT=$1
 
-cd ${BOT}
+CURRENT_DIR=$(dirname $0)
+
+cd $CURRENT_DIR/${BOT}
 
 source .env
 
