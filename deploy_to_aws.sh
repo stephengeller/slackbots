@@ -4,12 +4,13 @@ set -euo pipefail
 
 BOT=$1
 FORCE=${2:-"no"}
+ENV_FILE=.env.prod
 
 CURRENT_DIR=$(dirname $0)
 
 cd "${CURRENT_DIR}/${BOT}"
 
-source .env.prod
+source ${ENV_FILE}
 
 RED="\033[31m"
 GREEN="\033[32m"
@@ -45,10 +46,10 @@ function install_dependencies() {
 # Copy source files into directory, and zip it up
 function zip_files() {
     cp ${SRC_DIR}/* ${PACKAGE_DIR}/
-    cp .env ${PACKAGE_DIR}/
+    cp ${ENV_FILE} ${PACKAGE_DIR}/
     cd ${PACKAGE_DIR}
     echo -e "\n${BOLD}Zipping up...${NC}"
-    zip -r ../${ZIPPED_PACKAGE} * ./.env
+    zip -r ../${ZIPPED_PACKAGE} * ./${ENV_FILE}
     cd - &>/dev/null
 }
 
