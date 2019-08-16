@@ -7,7 +7,7 @@ FORCE=${2:-"no"}
 
 CURRENT_DIR=$(dirname $0)
 
-cd $CURRENT_DIR/${BOT}
+cd "${CURRENT_DIR}/${BOT}"
 
 source .env
 
