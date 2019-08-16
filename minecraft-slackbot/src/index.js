@@ -13,14 +13,27 @@ const params = {
   InstanceIds: [SERVER_INSTANCE_ID]
 };
 
-const jsonResponse = (channel, text, response_type = "in_channel") => {
+const jsonResponse = (
+  channel = null,
+  text,
+  response_type = "in_channel",
+  attachments = null
+) => {
   return {
     statusCode: 200,
     body: JSON.stringify({
       channel,
       text,
-      response_type
+      response_type,
+      attachments
     })
+  };
+};
+
+const jsonBlockResponse = (channel, blocks, response_type = "in_channel") => {
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ channel, blocks, response_type })
   };
 };
 
@@ -37,20 +50,51 @@ const turnOnServer = async user => {
       .catch(err => err);
     return `<@${user}> turned on the server!`;
   } else {
-    return "Server is not currently off, check `/minecraft status`.";
+    return "Server state is *" + state + "*\nCheck `/minecraft status`.";
   }
 };
 
+function promptStopConfirmation(user) {
+  return [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*<@${user}>, have you shut down the server with \`/stop\`?*`
+      }
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: { type: "plain_text", emoji: true, text: "Yes" },
+          style: "primary",
+          value: "yes"
+        },
+        {
+          type: "button",
+          text: { type: "plain_text", emoji: true, text: "No" },
+          style: "danger",
+          value: "no"
+        }
+      ]
+    }
+  ];
+}
+
 const turnOffServer = async user => {
   const { state } = await getEC2State();
-  if (state === "stopped") {
-    return "Server is already off, check `/minecraft status`.";
+  if (state === "stopped" || state === "stopping") {
+    return "Server is *off*\nCheck `/minecraft status`.";
   } else {
-    await ec2
-      .stopInstances(params)
-      .promise()
-      .catch(err => err);
-    return `<@${user}> is stopping the server!`;
+    return promptStopConfirmation(user);
+
+    // await ec2
+    //   .stopInstances(params)
+    //   .promise()
+    //   .catch(err => err);
+    // return `<@${user}> is stopping the server!`;
   }
 };
 
@@ -102,29 +146,39 @@ const serverStatus = async () => {
 
 const handler = async event => {
   let msg = "Incorrect arg, try `/minecraft on|off|status`";
-  const { body } = event;
-  const parsed = new URLSearchParams(body);
-  const req_channel = parsed.get("channel_id");
-  const user_id = parsed.get("user_id");
-  const command = parsed.get("command");
-  const text = parsed.get("text");
+  msg = JSON.stringify(event);
 
   try {
+    const { body } = event;
+    const parsed = new URLSearchParams(body);
+    const req_channel = parsed.get("channel_id");
+    const user_id = parsed.get("user_id");
+    const command = parsed.get("command");
+    const text = parsed.get("text");
     if (command === "/minecraft") {
       if (text === "on" || text === "start") {
         msg = await turnOnServer(user_id);
       } else if (text === "off" || text === "stop") {
-        msg = await turnOffServer(user_id);
+        const blocks = await turnOffServer(user_id);
+        return jsonBlockResponse(minecraftChannel, blocks);
       } else if (text === "status") {
         msg = await serverStatus();
         return jsonResponse(req_channel, msg, "ephemeral");
       }
     }
+    return jsonResponse(minecraftChannel, msg, "in_channel");
   } catch (e) {
     msg = "ERROR: " + e.toString();
+    console.log(msg);
+    console.log(event);
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        text: msg,
+        response_type: "ephemeral"
+      })
+    };
   }
-
-  return jsonResponse(minecraftChannel, msg, "in_channel");
 };
 
 module.exports = { handler };
