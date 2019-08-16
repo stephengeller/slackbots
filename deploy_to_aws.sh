@@ -3,6 +3,7 @@
 set -euo pipefail
 
 BOT=$1
+FORCE=${2:""}
 
 CURRENT_DIR=$(dirname $0)
 
@@ -70,7 +71,10 @@ function cleanup() {
     rm -rf ${PACKAGE_DIR}
 }
 
-lint_files
+if [[ ${FORCE} != "force" ]]; then
+	lint_files
+fi
+
 cleanup
 install_dependencies
 zip_files
