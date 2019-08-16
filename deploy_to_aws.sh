@@ -3,7 +3,7 @@
 set -euo pipefail
 
 BOT=$1
-FORCE=${2:""}
+FORCE=${2:-"no"}
 
 CURRENT_DIR=$(dirname $0)
 
