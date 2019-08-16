@@ -9,7 +9,7 @@ CURRENT_DIR=$(dirname $0)
 
 cd "${CURRENT_DIR}/${BOT}"
 
-source .env
+source .env.prod
 
 RED="\033[31m"
 GREEN="\033[32m"
