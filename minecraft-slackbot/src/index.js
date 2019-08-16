@@ -1,18 +1,28 @@
-const AWS = require("aws-sdk");
 const axios = require("axios");
 require("dotenv").config();
-const { INSTANCE_IP, SERVER_INSTANCE_ID } = process.env;
-const mcApiUrl = "https://mcapi.us/server/status?port=25565&ip=" + INSTANCE_IP;
+const {
+  INSTANCE_IP,
+  SERVER_INSTANCE_ID,
+  TOPIC_URL,
+  MCAPIURL,
+  ENV,
+  MINECRAFT_SLACK_CHANNEL
+} = process.env;
+const mcApiUrl = MCAPIURL + INSTANCE_IP;
+let AWS, ec2;
 
-AWS.config.update({ region: "eu-west-2" });
+if (ENV !== "dev") {
+  AWS = require("aws-sdk");
+  AWS.config.update({ region: "eu-west-2" });
+  ec2 = new AWS.EC2({ apiVersion: "2016-11-15" });
+}
 
 const abortStopText =
   "*Stop aborted*\n" +
   "Please log into the server and run `/stop` to shut down the server, " +
   "then run `/minecraft stop` again.";
 
-const minecraftChannel = "CLBLVNLE7";
-const ec2 = new AWS.EC2({ apiVersion: "2016-11-15" });
+const minecraftChannel = MINECRAFT_SLACK_CHANNEL;
 const ec2Params = {
   DryRun: false,
   InstanceIds: [SERVER_INSTANCE_ID]
@@ -21,7 +31,7 @@ const ec2Params = {
 const jsonResponse = (
   channel = null,
   text,
-  response_type = "in_channel",
+  response_type = "ephemeral",
   attachments = null
 ) => {
   return {
@@ -55,7 +65,7 @@ const turnOnServer = async user => {
   }
 };
 
-function stopConfirm(user) {
+const stopConfirm = user => {
   return [
     {
       type: "section",
@@ -82,13 +92,16 @@ function stopConfirm(user) {
       ]
     }
   ];
-}
+};
 
 const stopEC2Server = async user => {
   await ec2
     .stopInstances(ec2Params)
     .promise()
     .catch(err => err);
+  axios.get(TOPIC_URL).catch(err => {
+    throw err;
+  });
   return `<@${user}> is stopping the server!`;
 };
 
@@ -109,7 +122,7 @@ const promptStopConfirmation = async user => {
   }
 };
 
-async function getEC2State() {
+const getEC2State = async () => {
   return await ec2
     .describeInstances(ec2Params)
     .promise()
@@ -123,23 +136,20 @@ async function getEC2State() {
       };
     })
     .catch(err => console.log(err));
-}
+};
 
-function assertServerState(data, ec2Info) {
-  if (data.online) {
+const assertServerState = ({ players, online }, { state, message }) => {
+  if (online) {
     return (
-      "\nServer is *online*!\n" +
-      `*${data.players.now} players* currently online.\n`
+      "\nServer is *online*!\n" + `*${players.now} players* currently online.\n`
     );
   } else {
     return (
-      `\nEC2 instance is *${
-        ec2Info.state
-      }* but *Minecraft server is not running*.\nWait for a few seconds if just turning it on, then speak to Stephen?\n` +
-      ec2Info.message
+      `\nEC2 instance is *${state}* but *Minecraft server is not running*.\nWait for a few seconds if just turning it on, then speak to Stephen?\n` +
+      message
     );
   }
-}
+};
 
 const serverStatus = async () => {
   const ec2Info = await getEC2State();
@@ -163,45 +173,54 @@ const logAxiosErr = err => {
   console.log(err);
 };
 
-const axiosResponse = async (response_url, params) => {
-  return await axios.post(response_url, params).catch(err => {
+const axiosResponse = async (responseURL, params) => {
+  return await axios.post(responseURL, params).catch(err => {
     logAxiosErr(err);
     throw err;
   });
 };
 
-async function handlePayload(parsed) {
-  let params;
-  const payload = JSON.parse(parsed.get("payload"));
-  const { response_url, user, actions } = payload;
-  const { value } = actions[0];
+const handlePayload = async parsed => {
+  try {
+    let params;
+    const payload = JSON.parse(parsed.get("payload"));
+    const { response_url, user, actions } = payload;
+    const { value } = actions[0];
 
-  if (value === "yes") {
-    params = {
-      text: await stopEC2Server(user.id),
-      response_type: "in_channel"
-    };
-  } else if (value === "no") {
-    params = {
-      text: abortStopText,
-      response_type: "ephemeral"
-    };
-  } else {
-    params = {
-      text: "*Action not understood :(*",
-      response_type: "ephemeral"
-    };
+    if (value === "yes") {
+      params = {
+        text: await fns.stopEC2Server(user.id),
+        response_type: "in_channel"
+      };
+    } else if (value === "no") {
+      params = {
+        text: abortStopText,
+        response_type: "ephemeral"
+      };
+    } else {
+      params = {
+        text: "*Action not understood :(*",
+        response_type: "ephemeral"
+      };
+    }
+
+    return await fns.axiosResponse(response_url, params);
+  } catch (e) {
+    throw e;
   }
-  return await axiosResponse(response_url, params);
-}
+};
 
 const handler = async event => {
   let msg = "Incorrect arg, try `/minecraft on|off|status`";
 
+  if (!event["body"]) {
+    throw new Error("No body in event");
+  }
+
   try {
     const parsed = new URLSearchParams(event.body);
     if (parsed.get("payload") != null) {
-      return await handlePayload(parsed, event);
+      return await fns.handlePayload(parsed);
     }
 
     const [req_channel, user_id, command, text] = [
@@ -213,27 +232,42 @@ const handler = async event => {
 
     if (command === "/minecraft") {
       if (text === "on" || text === "start") {
-        msg = await turnOnServer(user_id);
-        return jsonResponse(minecraftChannel, msg, "ephemeral");
+        msg = await fns.turnOnServer(user_id);
+        return fns.jsonResponse(minecraftChannel, msg, "in_channel");
       } else if (text === "off" || text === "stop") {
-        const blocks = await promptStopConfirmation(user_id);
-        return jsonBlockResponse(minecraftChannel, blocks);
+        const blocks = await fns.promptStopConfirmation(user_id);
+        return fns.jsonBlockResponse(minecraftChannel, blocks);
       } else if (text === "status") {
-        msg = await serverStatus();
-        return jsonResponse(req_channel, msg, "ephemeral");
+        msg = await fns.serverStatus();
+        return fns.jsonResponse(req_channel, msg, "ephemeral");
       }
+    } else {
+      return fns.jsonResponse(
+        null,
+        "Error: Slash command not recognised",
+        "ephemeral"
+      );
     }
   } catch (e) {
-    msg = "ERROR: " + e.toString();
+    msg = e.toString();
     console.log(msg);
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        text: msg,
-        response_type: "ephemeral"
-      })
-    };
+    return fns.jsonResponse(null, msg, "ephemeral");
   }
 };
 
-module.exports = { handler };
+const fns = {
+  handler,
+  jsonResponse,
+  jsonBlockResponse,
+  assertServerState,
+  handlePayload,
+  abortStopText,
+  axiosResponse,
+  stopEC2Server,
+  turnOnServer,
+  minecraftChannel,
+  promptStopConfirmation,
+  serverStatus
+};
+
+module.exports = fns;
