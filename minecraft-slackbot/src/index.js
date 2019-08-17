@@ -45,7 +45,7 @@ const jsonResponse = (
   };
 };
 
-const jsonBlockResponse = (channel, blocks, response_type = "in_channel") => {
+const jsonBlockResponse = (channel, blocks, response_type = "ephemeral") => {
   return {
     statusCode: 200,
     body: JSON.stringify({ channel, blocks, response_type })
@@ -57,11 +57,17 @@ const turnOnServer = async user => {
   if (state === "stopped") {
     await ec2
       .startInstances(ec2Params)
-      .promise()
+      .promise(res => res)
       .catch(err => err);
-    return `<@${user}> turned on the server!`;
+    return {
+      text: `<@${user}> turned on the server!`,
+      response_type: "in_channel"
+    };
   } else {
-    return "Server state is *" + state + "*\nCheck `/minecraft status`.";
+    return {
+      text: generateHelpMsg(state),
+      response_type: "ephemeral"
+    };
   }
 };
 
@@ -105,6 +111,10 @@ const stopEC2Server = async user => {
   return `<@${user}> is stopping the server!`;
 };
 
+function generateHelpMsg(state) {
+  return `Server is *${state}*\nCheck \`/minecraft status\`.`;
+}
+
 const promptStopConfirmation = async user => {
   const { state } = await getEC2State();
   if (state === "stopped" || state === "stopping") {
@@ -113,7 +123,7 @@ const promptStopConfirmation = async user => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: "Server is *off*\nCheck `/minecraft status`."
+          text: generateHelpMsg(state)
         }
       }
     ];
@@ -211,8 +221,6 @@ const handlePayload = async parsed => {
 };
 
 const handler = async event => {
-  let msg = "Incorrect arg, try `/minecraft on|off|status`";
-
   if (!event["body"]) {
     throw new Error("No body in event");
   }
@@ -232,24 +240,31 @@ const handler = async event => {
 
     if (command === "/minecraft") {
       if (text === "on" || text === "start") {
-        msg = await fns.turnOnServer(user_id);
-        return fns.jsonResponse(minecraftChannel, msg, "in_channel");
+        const { text, response_type } = await fns.turnOnServer(user_id);
+        console.log(text, response_type);
+        return fns.jsonResponse(minecraftChannel, text, response_type);
       } else if (text === "off" || text === "stop") {
         const blocks = await fns.promptStopConfirmation(user_id);
         return fns.jsonBlockResponse(minecraftChannel, blocks);
       } else if (text === "status") {
-        msg = await fns.serverStatus();
+        const msg = await fns.serverStatus();
         return fns.jsonResponse(req_channel, msg, "ephemeral");
+      } else {
+        return fns.jsonResponse(
+          null,
+          "Incorrect arg, try `/minecraft on|off|status`",
+          "ephemeral"
+        );
       }
     } else {
       return fns.jsonResponse(
         null,
-        "Error: Slash command not recognised",
+        "Error: Slash command not recognised.",
         "ephemeral"
       );
     }
   } catch (e) {
-    msg = e.toString();
+    const msg = e.toString();
     console.log(msg);
     return fns.jsonResponse(null, msg, "ephemeral");
   }

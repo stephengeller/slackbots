@@ -56,11 +56,9 @@ describe("index", () => {
       });
       const respURL = "www.foo.com";
       const params = { foo: "bar" };
-      try {
-        index.axiosResponse(respURL, params);
-      } catch (err) {
-        expect(err).toEqual("BROKE");
-      }
+      await index
+        .axiosResponse(respURL, params)
+        .catch(err => expect(err.toString()).toEqual("Error: BROKE"));
 
       expect(axios.post).toHaveBeenCalledWith(respURL, params);
     });
@@ -206,13 +204,15 @@ describe("index", () => {
     });
 
     test("returns success ON response if turning on", async () => {
-      index.turnOnServer = jest.fn(id => `${id} turned on server`);
+      index.turnOnServer = jest.fn(id => {
+        return { text: `${id} turned on server`, response_type: "ephemeral" };
+      });
       const body =
         "channel_id=chan&user_id=some_user&command=%2Fminecraft&text=on";
       const res = await handler({ body });
       expect(JSON.parse(res.body)).toEqual({
         text: "some_user turned on server",
-        response_type: "in_channel",
+        response_type: "ephemeral",
         attachments: null,
         channel: index.minecraftChannel
       });
@@ -225,13 +225,13 @@ describe("index", () => {
       const res = await handler({ body });
       expect(JSON.parse(res.body)).toEqual({
         blocks: "some_user turned off server",
-        response_type: "in_channel",
+        response_type: "ephemeral",
         channel: index.minecraftChannel
       });
     });
 
     test("returns success status response if turning off", async () => {
-      index.serverStatus = jest.fn(() => `IT BE RUNNING`);
+      index.serverStatus = jest.fn(() => "IT BE RUNNING");
       const body =
         "channel_id=chan&user_id=some_user&command=%2Fminecraft&text=status";
       const res = await handler({ body });
@@ -243,10 +243,23 @@ describe("index", () => {
       });
     });
 
+    test("returns success status response if turning off", async () => {
+      index.serverStatus = jest.fn(() => "IT BE RUNNING");
+      const body =
+        "channel_id=chan&user_id=some_user&command=%2Fminecraft&text=somethinginvalid";
+      const res = await handler({ body });
+      expect(JSON.parse(res.body)).toEqual({
+        text: "Incorrect arg, try `/minecraft on|off|status`",
+        response_type: "ephemeral",
+        channel: null,
+        attachments: null
+      });
+    });
+
     test("returns error object if bad command", async () => {
       const res = await handler({ body: "not a valid event" });
       expect(JSON.parse(res.body)).toEqual({
-        text: "Error: Slash command not recognised",
+        text: "Error: Slash command not recognised.",
         response_type: "ephemeral",
         channel: null,
         attachments: null
