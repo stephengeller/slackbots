@@ -46,10 +46,10 @@ function install_dependencies() {
 # Copy source files into directory, and zip it up
 function zip_files() {
     cp ${SRC_DIR}/* ${PACKAGE_DIR}/
-    cp ${ENV_FILE} ${PACKAGE_DIR}/
+    cp ${ENV_FILE} ${PACKAGE_DIR}/.env
     cd ${PACKAGE_DIR}
     echo -e "\n${BOLD}Zipping up...${NC}"
-    zip -r ../${ZIPPED_PACKAGE} * ./${ENV_FILE}
+    zip -r ../${ZIPPED_PACKAGE} * .*
     cd - &>/dev/null
 }
 
