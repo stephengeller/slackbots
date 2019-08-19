@@ -32,8 +32,9 @@ if [[ -z ${FUNCTION_NAME} ||  -z ${REGION} ||  -z ${PROFILE} ]]; then
 fi
 
 
-function lint_files() {
-    eslint ${SRC_DIR}/
+function test_and_lint() {
+    eslint .
+    jest .
 }
 
 # Install dependencies from requirements.txt
@@ -73,7 +74,7 @@ function cleanup() {
 }
 
 if [[ ${FORCE} != "force" ]]; then
-	lint_files
+	test_and_lint
 fi
 
 cleanup
