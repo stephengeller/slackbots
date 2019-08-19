@@ -189,11 +189,15 @@ describe("index", () => {
     });
 
     test("returns error response if error in try block", async () => {
+      let outputData = "";
       index.turnOnServer = jest.fn(() => {
         throw new Error("Error turning on server");
       });
       const body =
         "channel_id=chan&user_id=some_user&command=%2Fminecraft&text=on";
+
+      console["log"] = jest.fn(out => (outputData += out));
+
       const res = await handler({ body });
       expect(JSON.parse(res.body)).toEqual({
         text: "Error: Error turning on server",
@@ -201,6 +205,7 @@ describe("index", () => {
         attachments: null,
         channel: null
       });
+      expect(outputData).toContain("Error: Error turning on server");
     });
 
     test("returns success ON response if turning on", async () => {
@@ -225,7 +230,7 @@ describe("index", () => {
       const res = await handler({ body });
       expect(JSON.parse(res.body)).toEqual({
         blocks: "some_user turned off server",
-        response_type: "ephemeral",
+        response_type: "in_channel",
         channel: index.minecraftChannel
       });
     });

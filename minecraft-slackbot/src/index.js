@@ -4,14 +4,14 @@ const {
   INSTANCE_IP,
   SERVER_INSTANCE_ID,
   TOPIC_URL,
-  MCAPIURL,
-  ENV,
-  MINECRAFT_SLACK_CHANNEL
+  MCAPI_URL,
+  MINECRAFT_SLACK_CHANNEL,
+  NODE_ENV
 } = process.env;
-const mcApiUrl = MCAPIURL + INSTANCE_IP;
+const mcApiUrl = MCAPI_URL + INSTANCE_IP;
 let AWS, ec2;
 
-if (ENV !== "dev") {
+if (NODE_ENV !== "test") {
   AWS = require("aws-sdk");
   AWS.config.update({ region: "eu-west-2" });
   ec2 = new AWS.EC2({ apiVersion: "2016-11-15" });
@@ -58,7 +58,9 @@ const turnOnServer = async user => {
     await ec2
       .startInstances(ec2Params)
       .promise(res => res)
-      .catch(err => err);
+      .catch(err => {
+        throw err;
+      });
     return {
       text: `<@${user}> turned on the server!`,
       response_type: "in_channel"
@@ -172,10 +174,15 @@ const serverStatus = async () => {
     );
   }
 
-  return await axios.get(mcApiUrl).then(res => {
-    const { data } = res;
-    return assertServerState(data, ec2Info);
-  });
+  return await axios
+    .get(mcApiUrl)
+    .then(res => {
+      const { data } = res;
+      return assertServerState(data, ec2Info);
+    })
+    .catch(err => {
+      throw err;
+    });
 };
 
 const logAxiosErr = err => {
@@ -241,11 +248,10 @@ const handler = async event => {
     if (command === "/minecraft") {
       if (text === "on" || text === "start") {
         const { text, response_type } = await fns.turnOnServer(user_id);
-        console.log(text, response_type);
         return fns.jsonResponse(minecraftChannel, text, response_type);
       } else if (text === "off" || text === "stop") {
         const blocks = await fns.promptStopConfirmation(user_id);
-        return fns.jsonBlockResponse(minecraftChannel, blocks);
+        return fns.jsonBlockResponse(minecraftChannel, blocks, "in_channel");
       } else if (text === "status") {
         const msg = await fns.serverStatus();
         return fns.jsonResponse(req_channel, msg, "ephemeral");
@@ -265,7 +271,7 @@ const handler = async event => {
     }
   } catch (e) {
     const msg = e.toString();
-    console.log(msg);
+    console.log(e);
     return fns.jsonResponse(null, msg, "ephemeral");
   }
 };
