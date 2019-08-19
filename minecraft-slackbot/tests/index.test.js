@@ -219,7 +219,7 @@ describe("index", () => {
         text: "some_user turned on server",
         response_type: "ephemeral",
         attachments: null,
-        channel: index.minecraftChannel
+        channel: null
       });
     });
 
