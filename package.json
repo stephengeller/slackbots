@@ -1,0 +1,19 @@
+{
+  "name": "slackbots",
+  "version": "1.0.0",
+  "description": "# How to use",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stephengeller/slackbots.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/stephengeller/slackbots/issues"
+  },
+  "homepage": "https://github.com/stephengeller/slackbots#readme"
+}

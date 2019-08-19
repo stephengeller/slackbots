@@ -4,7 +4,7 @@ set -euo pipefail
 
 BOT=$1
 FORCE=${2:-"no"}
-ENV_FILE=.env.prod
+ENV_FILE=.env
 
 CURRENT_DIR=$(dirname $0)
 
