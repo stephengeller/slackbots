@@ -67,7 +67,7 @@ const turnOnServer = async user => {
     };
   } else {
     return {
-      text: generateHelpMsg(state),
+      text: badStateMsg(state),
       response_type: "ephemeral"
     };
   }
@@ -102,6 +102,12 @@ const stopConfirm = user => {
   ];
 };
 
+const handleStop = async (user_id, channel) => {
+  // const ec2State = getEC2State();
+  const blocks = await fns.promptStopConfirmation(user_id);
+  return fns.jsonBlockResponse(channel, blocks, "in_channel");
+};
+
 const stopEC2Server = async user => {
   await ec2
     .stopInstances(ec2Params)
@@ -113,7 +119,7 @@ const stopEC2Server = async user => {
   return `<@${user}> is stopping the server!`;
 };
 
-function generateHelpMsg(state) {
+function badStateMsg(state) {
   return `Server is *${state}*\nCheck \`/minecraft status\`.`;
 }
 
@@ -125,7 +131,7 @@ const promptStopConfirmation = async user => {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: generateHelpMsg(state)
+          text: badStateMsg(state)
         }
       }
     ];
@@ -150,16 +156,20 @@ const getEC2State = async () => {
     .catch(err => console.log(err));
 };
 
-const assertServerState = ({ players, online }, { state, message }) => {
+const assertServerState = (players, online, state) => {
   if (online) {
-    return (
-      "\nServer is *online*!\n" + `*${players.now} players* currently online.\n`
-    );
+    return {
+      state: "running",
+      message:
+        "\nServer is *online*!\n" + `*${players} players* currently online.\n`,
+      players
+    };
   } else {
-    return (
-      `\nEC2 instance is *${state}* but *Minecraft server is not running*.\nWait for a few seconds if just turning it on, then speak to Stephen?\n` +
-      message
-    );
+    return {
+      state: "running",
+      message: `\nEC2 instance is *${state}* but *Minecraft server is not running*.\nWait for a few seconds if just turning it on, then speak to Stephen?\n`,
+      players
+    };
   }
 };
 
@@ -167,18 +177,22 @@ const serverStatus = async () => {
   const ec2Info = await getEC2State();
 
   if (ec2Info.state !== "running") {
-    return (
-      "EC2 instance is " +
-      ec2Info.state +
-      ". Run `/minecraft on` to turn it on.\n"
-    );
+    return {
+      state: ec2Info.state,
+      message:
+        "EC2 instance is " +
+        ec2Info.state +
+        ". Run `/minecraft on` to turn it on.\n",
+      players: 0
+    };
   }
 
   return await axios
     .get(mcApiUrl)
     .then(res => {
       const { data } = res;
-      return assertServerState(data, ec2Info);
+      const { players, online } = data;
+      return assertServerState(players.now, online, ec2Info.state);
     })
     .catch(err => {
       throw err;
@@ -198,33 +212,29 @@ const axiosResponse = async (responseURL, params) => {
 };
 
 const handlePayload = async parsed => {
-  try {
-    let params;
-    const payload = JSON.parse(parsed.get("payload"));
-    const { response_url, user, actions } = payload;
-    const { value } = actions[0];
+  let params;
+  const payload = JSON.parse(parsed.get("payload"));
+  const { response_url, user, actions } = payload;
+  const { value } = actions[0];
 
-    if (value === "yes") {
-      params = {
-        text: await fns.stopEC2Server(user.id),
-        response_type: "in_channel"
-      };
-    } else if (value === "no") {
-      params = {
-        text: abortStopText,
-        response_type: "ephemeral"
-      };
-    } else {
-      params = {
-        text: "*Action not understood :(*",
-        response_type: "ephemeral"
-      };
-    }
-
-    return await fns.axiosResponse(response_url, params);
-  } catch (e) {
-    throw e;
+  if (value === "yes") {
+    params = {
+      text: await fns.stopEC2Server(user.id),
+      response_type: "in_channel"
+    };
+  } else if (value === "no") {
+    params = {
+      text: abortStopText,
+      response_type: "ephemeral"
+    };
+  } else {
+    params = {
+      text: "*Action not understood :(*",
+      response_type: "ephemeral"
+    };
   }
+
+  return await fns.axiosResponse(response_url, params);
 };
 
 const handler = async event => {
@@ -248,13 +258,12 @@ const handler = async event => {
     if (command === "/minecraft") {
       if (text === "on" || text === "start") {
         const { text, response_type } = await fns.turnOnServer(user_id);
-        return fns.jsonResponse(minecraftChannel, text, response_type);
+        return fns.jsonResponse(null, text, response_type);
       } else if (text === "off" || text === "stop") {
-        const blocks = await fns.promptStopConfirmation(user_id);
-        return fns.jsonBlockResponse(minecraftChannel, blocks, "in_channel");
+        return await fns.handleStop(user_id, minecraftChannel);
       } else if (text === "status") {
-        const msg = await fns.serverStatus();
-        return fns.jsonResponse(req_channel, msg, "ephemeral");
+        const { message } = await fns.serverStatus();
+        return fns.jsonResponse(req_channel, message, "ephemeral");
       } else {
         return fns.jsonResponse(
           null,
@@ -288,7 +297,8 @@ const fns = {
   turnOnServer,
   minecraftChannel,
   promptStopConfirmation,
-  serverStatus
+  serverStatus,
+  handleStop
 };
 
 module.exports = fns;

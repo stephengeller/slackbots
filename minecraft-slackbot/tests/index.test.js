@@ -80,25 +80,19 @@ describe("index", () => {
 
   describe("assertServerState", () => {
     test("returns message if server is online", () => {
-      const res = assertServerState(
-        { players: { now: 1 }, online: true },
-        { state: "running", message: "foo" }
-      );
+      const res = assertServerState(1, true, "running");
       const expectedMsg =
         "\nServer is *online*!\n*1 players* currently online.\n";
 
-      expect(res).toEqual(expectedMsg);
+      expect(res.message).toEqual(expectedMsg);
     });
 
     test("returns message if server is offline but ec2 online", () => {
-      const res = assertServerState(
-        { online: false },
-        { state: "running", message: "foo" }
-      );
+      const res = assertServerState(null, false, "running");
       const expectedMsg =
         "\nEC2 instance is *running* but *Minecraft server is not running*.\n" +
-        "Wait for a few seconds if just turning it on, then speak to Stephen?\nfoo";
-      expect(res).toEqual(expectedMsg);
+        "Wait for a few seconds if just turning it on, then speak to Stephen?\n";
+      expect(res.message).toEqual(expectedMsg);
     });
   });
   describe("handlePayload", () => {
@@ -236,7 +230,9 @@ describe("index", () => {
     });
 
     test("returns success status response if turning off", async () => {
-      index.serverStatus = jest.fn(() => "IT BE RUNNING");
+      index.serverStatus = jest.fn(() => {
+        return { message: "IT BE RUNNING" };
+      });
       const body =
         "channel_id=chan&user_id=some_user&command=%2Fminecraft&text=status";
       const res = await handler({ body });
