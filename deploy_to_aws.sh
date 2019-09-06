@@ -41,7 +41,7 @@ function test_and_lint() {
 function install_dependencies() {
     mkdir ${PACKAGE_DIR}
     cp package.json ${PACKAGE_DIR}/
-    npm install --prefix ${PACKAGE_DIR}
+    npm install --prefix ${PACKAGE_DIR} --only=prod
 }
 
 # Copy source files into directory, and zip it up
@@ -50,7 +50,7 @@ function zip_files() {
     cp ${ENV_FILE} ${PACKAGE_DIR}/.env
     cd ${PACKAGE_DIR}
     echo -e "\n${BOLD}Zipping up...${NC}"
-    zip -r ../${ZIPPED_PACKAGE} * .*
+    zip -r ../${ZIPPED_PACKAGE} * ${ENV_FILE}
     cd - &>/dev/null
 }
 
